@@ -1,146 +1,155 @@
-# HealthDash — Patient Management Dashboard
+# HealthDash
 
-A full-stack healthcare dashboard for managing patients, clinical notes, and patient summaries. Built with React + TypeScript on the frontend and FastAPI + PostgreSQL on the backend.
+A patient management dashboard built for a medical practice. Doctors and staff can manage patients, write clinical notes, and view auto-generated patient summaries — all from a single responsive interface.
 
-## Quick Start
+The frontend is React + TypeScript served by Vite, the backend is FastAPI with PostgreSQL, and the whole thing runs with one command via Docker Compose.
+
+## Getting Started
+
+Make sure you have Docker installed, then:
 
 ```bash
+git clone https://github.com/joelngala/healthcare-dashboard.git
+cd healthcare-dashboard
 docker compose up --build
 ```
 
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+That's it. Three containers come up:
 
-The database is seeded with 20 patients and 32 clinical notes on first startup.
+- **Frontend** — http://localhost:5173
+- **API** — http://localhost:8000
+- **Swagger Docs** — http://localhost:8000/docs
 
-## Tech Stack
+On first boot, the database is seeded with 20 realistic patients and 32 clinical notes so you have data to work with right away.
 
-### Frontend
-- **Vite** + **React 19** + **TypeScript**
-- **Tailwind CSS v4** — utility-first styling
-- **React Router v6** — client-side routing
-- **TanStack Query** — server state management with caching and invalidation
-- **React Hook Form** + **Zod** — form handling with schema-based validation
-- **Recharts** — data visualization (dashboard chart)
-- **Lucide React** — icon library
+## What It Does
 
-### Backend
-- **FastAPI** — async Python API framework
-- **SQLAlchemy 2.0** — ORM with mapped column types
-- **Pydantic v2** — request/response validation
-- **PostgreSQL 16** — relational database
-- **Alembic** — database migrations
+**Dashboard** — Landing page with four KPI cards (total patients, active, needs follow-up, seen this month), a status breakdown chart, and a quick-access table of the five most recently seen patients.
 
-### Infrastructure
-- **Docker Compose** — multi-container orchestration
-- Hot-reload enabled for both frontend and backend via volume mounts
+**Patient List** — A sortable, searchable, paginated table. You can filter by status, search by name (debounced so it doesn't fire on every keystroke), and click column headers to sort. Clicking a row opens the patient's detail view.
+
+**Patient Detail** — Three tabs:
+- *Overview* shows contact info and medical details at a glance
+- *Notes* lets you add or delete clinical notes — each one is timestamped
+- *Summary* generates a human-readable narrative from the patient's profile and notes
+
+**Patient Form** — Shared between create and edit. Two sections (personal info and medical info), validated on both the client (Zod) and the server (Pydantic). Required fields are marked, and inline errors show up if you miss something.
+
+**Responsive** — On smaller screens, the sidebar collapses behind a hamburger menu.
+
+## Tech Choices and Why
+
+I went with **TanStack Query** instead of Redux or Zustand because every piece of state in this app comes from the server. TanStack Query gives me caching, background refetching, and automatic loading/error states without writing reducers or actions. When a mutation succeeds (create, update, delete), I just invalidate the relevant query keys and everything stays in sync.
+
+For forms, I paired **React Hook Form** with **Zod**. React Hook Form uses uncontrolled inputs by default, which avoids unnecessary re-renders on large forms. Zod gives me a single schema that defines both the shape and the validation rules — conceptually similar to how Pydantic works on the backend.
+
+I built the UI components by hand (Card, Badge, Spinner, Toast) rather than pulling in a full component library. For a project this size, it keeps the bundle lean and gives me full control over the design. Everything is styled with **Tailwind CSS v4**.
+
+The patient summary endpoint uses a **template-based approach** rather than calling an LLM. It's deterministic, fast, and doesn't need API keys. The endpoint contract is the same either way, so swapping in an LLM later would be a backend-only change.
+
+On the backend, **SQLAlchemy 2.0** with mapped column types keeps the models type-safe and readable. Tables are created on startup with `create_all` for a zero-friction dev experience, but **Alembic** is also set up for when you need proper migration management.
+
+All routes are **lazy-loaded** with `React.lazy` and `Suspense`, so each page is its own chunk and the initial bundle stays small. The backend includes a **request logging middleware** that logs every request with method, path, status code, and response time.
 
 ## Project Structure
 
 ```
-├── frontend/
-│   └── src/
-│       ├── api/          # API client and endpoint functions
-│       ├── app/          # Router, providers
-│       ├── components/   # Layout and UI components
-│       ├── hooks/        # Custom hooks (useDebounce, useToast)
-│       ├── lib/          # Utils, constants
-│       ├── pages/        # Route-level page components
-│       └── types/        # TypeScript interfaces
-├── backend/
-│   ├── app/
-│   │   ├── api/routes/   # FastAPI route handlers
-│   │   ├── core/         # Config, database setup
-│   │   ├── models/       # SQLAlchemy models
-│   │   ├── schemas/      # Pydantic schemas
-│   │   ├── services/     # Business logic
-│   │   └── seed/         # Seed data
-│   └── alembic/          # Database migrations
-└── docker-compose.yml
+frontend/src/
+  api/            API client + endpoint functions
+  app/            Router config, query client provider
+  components/     Layout shell, reusable UI primitives
+  hooks/          useDebounce, useToast
+  lib/            Utility functions, constants
+  pages/          One file per route
+  types/          Shared TypeScript interfaces
+
+backend/app/
+  api/routes/     One file per resource (patients, notes, etc.)
+  core/           Database connection, app config
+  models/         SQLAlchemy table definitions
+  schemas/        Pydantic request/response models
+  services/       Business logic (queries, summary generation)
+  seed/           Sample data loaded on first startup
+
+alembic/          Migration config and version files
 ```
 
-## API Endpoints
+## API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| GET | `/patients` | List patients (paginated, filterable, sortable) |
-| GET | `/patients/{id}` | Get patient by ID |
-| POST | `/patients` | Create patient |
-| PUT | `/patients/{id}` | Update patient |
-| DELETE | `/patients/{id}` | Delete patient |
-| GET | `/patients/{id}/notes` | List patient notes |
+| Method | Endpoint | What it does |
+|--------|----------|--------------|
+| GET | `/health` | Returns `{"status": "ok"}` |
+| GET | `/patients` | Paginated list with search, filter, sort |
+| GET | `/patients/{id}` | Single patient |
+| POST | `/patients` | Create a patient |
+| PUT | `/patients/{id}` | Update a patient |
+| DELETE | `/patients/{id}` | Delete a patient |
+| GET | `/patients/{id}/notes` | All notes for a patient |
 | POST | `/patients/{id}/notes` | Add a note |
 | DELETE | `/patients/{id}/notes/{note_id}` | Delete a note |
-| GET | `/patients/{id}/summary` | Generate patient summary |
-| GET | `/dashboard/stats` | Dashboard KPIs and stats |
+| GET | `/patients/{id}/summary` | Generated patient summary |
+| GET | `/dashboard/stats` | KPIs + status breakdown + recent patients |
 
-### Query Parameters for `GET /patients`
+The `GET /patients` endpoint supports these query params:
 
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `page` | int | 1 | Page number |
-| `page_size` | int | 10 | Items per page (max 100) |
-| `search` | string | — | Search by patient name |
-| `status` | string | — | Filter by status (Active, Inactive, Follow-up) |
-| `sort_by` | string | last_visit | Sort field |
-| `sort_order` | string | desc | Sort direction (asc/desc) |
+| Param | Default | Example |
+|-------|---------|---------|
+| `page` | 1 | `?page=2` |
+| `page_size` | 10 | `?page_size=25` (max 100) |
+| `search` | — | `?search=chen` (searches first/last name) |
+| `status` | — | `?status=Active` |
+| `sort_by` | `last_visit` | `?sort_by=last_name` |
+| `sort_order` | `desc` | `?sort_order=asc` |
 
-## Features
+All list responses include pagination metadata:
 
-- **Dashboard** — KPI cards, status breakdown chart, recent patients
-- **Patient List** — searchable, filterable, sortable table with pagination
-- **Patient Detail** — tabbed view with overview, clinical notes, and AI-generated summary
-- **Patient Form** — create/edit with client-side (Zod) and server-side (Pydantic) validation
-- **Notes** — add and delete clinical notes with timestamps
-- **Summary** — template-based patient summary from profile and notes
-- **Toast Notifications** — success/error feedback on all mutations
-- **Responsive Layout** — collapsible sidebar for mobile screens
-- **Error Handling** — loading, empty, and error states throughout
+```json
+{
+  "items": [...],
+  "page": 1,
+  "page_size": 10,
+  "total": 20,
+  "total_pages": 2
+}
+```
 
-## Architecture Decisions
+## Running Without Docker
 
-- **TanStack Query over Redux/Zustand**: All state in this app is server state. TanStack Query handles caching, invalidation, and loading/error states out of the box — no boilerplate reducers needed.
-- **Zod + React Hook Form**: Schema-based validation shared conceptually with Pydantic on the backend. Forms are uncontrolled for performance.
-- **Template-based summary over LLM**: Deterministic, fast, and doesn't require API keys. The endpoint is structured so an LLM could be swapped in later.
-- **SQLAlchemy `create_all` + Alembic**: Tables are created on startup for zero-config dev experience. Alembic is configured for production migration workflows.
-- **No component library (shadcn-style)**: Hand-rolled Card, Badge, Spinner, Toast components using Tailwind — keeps the bundle small and the design cohesive.
+If you'd rather run things directly:
 
-## Environment Variables
-
-See `.env.example`. Defaults work out of the box with Docker Compose.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `postgresql://postgres:postgres@db:5432/healthcare` | PostgreSQL connection string |
-| `POSTGRES_USER` | `postgres` | Database user |
-| `POSTGRES_PASSWORD` | `postgres` | Database password |
-| `POSTGRES_DB` | `healthcare` | Database name |
-
-## Development
-
-### Without Docker
-
-**Backend:**
+**Backend** — needs Python 3.12+ and a running Postgres instance:
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-# Set DATABASE_URL to point to a running Postgres instance
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/healthcare
 uvicorn app.main:app --reload
 ```
 
-**Frontend:**
+**Frontend** — needs Node 20+:
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Running Migrations
+## Environment Variables
+
+Everything works out of the box with Docker Compose. See `.env.example` if you need to customize:
+
+| Variable | Default |
+|----------|---------|
+| `DATABASE_URL` | `postgresql://postgres:postgres@db:5432/healthcare` |
+| `POSTGRES_USER` | `postgres` |
+| `POSTGRES_PASSWORD` | `postgres` |
+| `POSTGRES_DB` | `healthcare` |
+
+## Migrations
 
 ```bash
+# Apply all migrations
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic revision --autogenerate -m "description"
+
+# Generate a new migration after model changes
+docker compose exec backend alembic revision --autogenerate -m "add xyz column"
 ```
