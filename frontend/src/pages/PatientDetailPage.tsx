@@ -55,7 +55,6 @@ export function PatientDetailPage() {
   const {
     data: summaryData,
     isLoading: summaryLoading,
-    refetch: refetchSummary,
   } = useQuery({
     queryKey: ["patient-summary", patientId],
     queryFn: () => fetchSummary(patientId),

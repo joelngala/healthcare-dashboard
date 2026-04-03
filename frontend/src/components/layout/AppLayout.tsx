@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { Outlet, NavLink } from "react-router-dom";
 import { LayoutDashboard, Users, Plus, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/Toaster";
@@ -12,7 +12,6 @@ const navItems = [
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const location = useLocation();
 
   // Close sidebar on navigation (mobile)
   const handleNavClick = () => setSidebarOpen(false);

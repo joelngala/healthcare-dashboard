@@ -90,7 +90,7 @@ export function PatientFormPage() {
     mutationFn: (data: PatientFormData) => {
       const payload = {
         ...data,
-        last_visit: data.last_visit || null,
+        last_visit: data.last_visit || undefined,
       };
       if (isEdit) {
         return updatePatient(patientId, payload);

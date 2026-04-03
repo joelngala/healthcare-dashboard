@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, useParams } from "react-router-dom";
+import { createHashRouter, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageSpinner } from "@/components/ui/Spinner";
 
@@ -36,7 +36,7 @@ function KeyedPatientForm() {
   );
 }
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     element: <AppLayout />,
     children: [
